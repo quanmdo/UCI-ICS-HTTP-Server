@@ -1,0 +1,6 @@
+res=large_file
+rm -f $res test.out
+head -c 100000 /dev/urandom > $res
+size=$(stat -c%s $res)
+curl -si localhost:1234/$res -o test.out
+diff <(printf "HTTP/1.1 200 OK\r\nContent-Length: $size\r\n\r\n" | cat - $res) test.out

@@ -1,0 +1,40 @@
+res=large_file
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+rm -f $res test.out httpserver[0-9]
+cp httpserver httpserver0
+./httpserver0 8080 -L -e 0 -t 0 &>/dev/null & \
+./httpserver 8081 -l log8081 -e 69 -t 69 &>/dev/null & \
+./httpserver 8082 -L -e 0 -t 120 &>/dev/null & \
+sleep 1
+./loadbalancer 1234 8080 8081 8082 &>/dev/null &
+
+head -c 150000 /dev/urandom > $res
+size=$(stat -c%s $res)
+
+exec 3>&2
+exec 2>/dev/null
+pkill httpserver0
+exec 2>&3
+exec 3>&-
+
+sleep 5
+
+curl -si localhost:1234/$res -o test.out
+diff <(printf "HTTP/1.1 200 OK\r\nContent-Length: $size\r\n\r\n" | cat - $res) test.out
+ret_d=$?
+chmod +x $DIR/util.py
+$DIR/util.py log8081 "GET /$res length $size"
+ret=$?
+
+exec 3>&2
+exec 2>/dev/null
+pkill loadbalancer
+pkill httpserver
+exec 2>&3
+exec 3>&-
+
+if (($ret == "0" & $ret_d == "0")); then
+   exit 0
+else
+   exit 1
+fi

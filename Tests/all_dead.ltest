@@ -1,0 +1,19 @@
+res=large_file
+rm -f $res test.out
+./loadbalancer 1234 8080 8081 8082 &>/dev/null &
+
+curl -si localhost:1234/$res -o test.out
+diff <(printf "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\n\r\n" | cat) test.out
+ret_d=$?
+
+exec 3>&2
+exec 2>/dev/null
+pkill loadbalancer
+exec 2>&3
+exec 3>&-
+
+if (($ret_d == "0")); then
+   exit 0
+else
+   exit 1
+fi

@@ -1,0 +1,46 @@
+get_res=small_file
+head_res=medium_file
+put_file=large_source
+put_res=large_file
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+./httpserver 8080 -L -e 69 -t 420 &>/dev/null & \
+./httpserver 8081 -l log8081 -e 50 -t 69 &>/dev/null & \
+./httpserver 8082 -L -e 3 -t 120 &>/dev/null & \
+sleep 1
+./loadbalancer 1234 8080 8081 8082 &>/dev/null &
+
+rm -f $get_res $head_res $put_file test_get.out test_head.out test_put.out
+head -c 2222 /dev/urandom > $put_file
+head -c 22222 /dev/urandom > $get_res
+head -c 222222 /dev/urandom > $head_res
+size_get=$(stat -c%s $get_res)
+size_head=$(stat -c%s $head_res)
+size_put=$(stat -c%s $put_file)
+(curl -siI localhost:1234/$head_res -o test_head.out & \
+ curl -si localhost:1234/$put_res -T $put_file -o test_put.out & \
+ curl -si localhost:1234/$get_res -o test_get.out & \
+ wait)
+
+diff <(printf "HTTP/1.1 200 OK\r\nContent-Length: $size_get\r\n\r\n" | cat - $get_res) test_get.out && \
+diff <(printf "HTTP/1.1 200 OK\r\nContent-Length: $size_head\r\n\r\n" | cat) test_head.out && \
+diff <(printf "HTTP/1.1 201 Created\r\nContent-Length: 0\r\n\r\n" | cat) test_put.out && \
+diff $put_file $put_res
+ret_d=$?
+chmod +x $DIR/util.py
+$DIR/util.py log8081 "GET /$get_res length $size_get" && \
+$DIR/util.py log8081 "HEAD /$head_res length $size_head" && \
+$DIR/util.py log8081 "PUT /$put_res length $size_put"
+ret=$?
+
+exec 3>&2
+exec 2>/dev/null
+pkill loadbalancer
+pkill httpserver
+exec 2>&3
+exec 3>&-
+
+if (($ret == "0" & $ret_d == "0")); then
+   exit 0
+else
+   exit 1
+fi

@@ -1,0 +1,7 @@
+file=large_source
+res=large_file
+rm -f $file $res test.out
+head -c 100000 /dev/urandom > $file
+curl -si localhost:1234/$res -T $file -o test.out
+diff <(printf "HTTP/1.1 201 Created\r\nContent-Length: 0\r\n\r\n" | cat) test.out && \
+diff $file $res

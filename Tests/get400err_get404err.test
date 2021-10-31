@@ -1,0 +1,7 @@
+res=my_file
+rm -f $res test400.out test404.out
+(curl -si localhost:1234/bad_f!lename -o test400.out & \
+ curl -si localhost:1234/$res -o test404.out & \
+ wait)
+diff <(printf "HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n" | cat) test400.out && \
+diff <(printf "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n" | cat) test404.out

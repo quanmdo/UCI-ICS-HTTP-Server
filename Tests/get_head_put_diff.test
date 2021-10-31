@@ -1,0 +1,19 @@
+get_res=small_file
+head_res=medium_file
+put_file=large_source
+put_res=large_file
+rm -f $get_res $head_res $put_file $put_res test_get.out test_head.out test_put.out
+head -c 2222 /dev/urandom > $get_res
+head -c 22222 /dev/urandom > $head_res
+head -c 222222 /dev/urandom > $put_file
+size_get=$(stat -c%s $get_res)
+size_head=$(stat -c%s $head_res)
+(curl -si localhost:1234/$get_res -o test_get.out & \
+ curl -siI localhost:1234/$head_res -o test_head.out & \
+ curl -si localhost:1234/$put_res -T $put_file -o test_put.out & \
+ wait)
+
+diff <(printf "HTTP/1.1 200 OK\r\nContent-Length: $size_get\r\n\r\n" | cat - $get_res) test_get.out && \
+diff <(printf "HTTP/1.1 200 OK\r\nContent-Length: $size_head\r\n\r\n" | cat) test_head.out && \
+diff <(printf "HTTP/1.1 201 Created\r\nContent-Length: 0\r\n\r\n" | cat) test_put.out && \
+diff $put_file $put_res

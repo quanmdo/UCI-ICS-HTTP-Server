@@ -1,0 +1,4 @@
+res=my_file
+rm -f $res test.out
+curl -si localhost:1234/$res -o test.out
+diff <(printf "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n" | cat) test.out

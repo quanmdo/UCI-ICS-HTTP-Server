@@ -1,0 +1,3 @@
+rm -f test.out
+curl -si localhost:1234/. -o test.out
+diff <(printf "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\n\r\n" | cat) test.out
